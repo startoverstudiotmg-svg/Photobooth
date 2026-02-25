@@ -2,168 +2,113 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Self Photobooth Pro</title>
+<title>Event Photobooth Pro</title>
 <style>
 *{box-sizing:border-box}
 body{
   margin:0;
-  font-family:Arial, sans-serif;
-  background:linear-gradient(135deg,#1e3c72,#2a5298);
+  font-family:Arial,sans-serif;
+  background:linear-gradient(135deg,#141e30,#243b55);
   color:white;
+  text-align:center;
 }
-
-.container{
-  display:flex;
-  flex-wrap:wrap;
-  min-height:100vh;
-}
-
-.camera{
-  flex:2;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  padding:20px;
-  position:relative;
-}
-
 video{
   width:350px;
   border-radius:15px;
   border:4px solid white;
 }
-
-#countdown{
-  font-size:80px;
-  margin:15px;
-}
-
-#startButton{
-  padding:15px 40px;
-  font-size:20px;
-  border:none;
-  border-radius:15px;
-  background:#ff4081;
-  color:white;
-  cursor:pointer;
-  margin-top:15px;
-  font-weight:bold;
-}
-
-#startButton:hover{
-  opacity:0.9;
-}
-
 canvas{
-  margin-top:20px;
+  margin-top:15px;
   border-radius:15px;
   background:white;
 }
-
-.dashboard{
-  flex:1;
+input{
+  padding:10px;
+  border-radius:10px;
+  border:none;
+  width:250px;
+  margin-top:10px;
+}
+button{
+  padding:12px 30px;
+  border:none;
+  border-radius:12px;
+  margin:10px;
+  font-size:16px;
+  cursor:pointer;
+  background:#ff4081;
+  color:white;
+  font-weight:bold;
+}
+#adminPanel{
+  display:none;
   background:white;
   color:#333;
   padding:20px;
-  overflow:auto;
+  margin-top:20px;
 }
-
 .stat{
   background:#f0f0f0;
   padding:10px;
+  margin:5px;
   border-radius:8px;
-  margin-bottom:10px;
 }
-
-button{
-  width:100%;
-  padding:10px;
-  margin-top:10px;
-  border:none;
-  border-radius:8px;
-  background:#2a5298;
-  color:white;
-  cursor:pointer;
-}
-
 .gallery img{
   width:100%;
   margin-top:10px;
   border-radius:10px;
 }
-
-@media(max-width:900px){
-  .container{flex-direction:column;}
-}
 </style>
 </head>
 <body>
 
-<div class="container">
+<h1>📸 Event Photobooth</h1>
 
-<div class="camera">
-  <h1>📸 Self Photobooth</h1>
-  <video id="video" autoplay></video>
-  <div id="countdown"></div>
-  <button id="startButton">🎬 MULAI SESI</button>
-  <canvas id="resultCanvas" width="350" height="900"></canvas>
-</div>
+<video id="video" autoplay></video>
+<div id="countdown" style="font-size:70px;"></div>
 
-<div class="dashboard">
-  <h2>📊 Dashboard Report</h2>
+<br>
+<input type="text" id="username" placeholder="Masukkan Nama Peserta">
+<br>
+<button onclick="startSession()">🎬 Mulai Sesi</button>
 
-  <div class="stat">Total Sesi: <span id="totalSession">0</span></div>
-  <div class="stat">Total Foto Diambil: <span id="totalPhotos">0</span></div>
-  <div class="stat">Terakhir Digunakan: <span id="lastUsed">-</span></div>
+<canvas id="resultCanvas" width="350" height="900"></canvas>
 
-  <button onclick="exportData()">Export Data (JSON)</button>
-  <button onclick="resetData()">Reset Data</button>
+<br>
+<button onclick="showAdminLogin()">🔐 Admin</button>
 
-  <h3>Gallery Hasil</h3>
-  <div class="gallery" id="gallery"></div>
-</div>
+<div id="adminPanel">
+<h2>📊 Dashboard Admin</h2>
+<div class="stat">Total Sesi: <span id="totalSession">0</span></div>
+<div class="stat">Total Foto: <span id="totalPhotos">0</span></div>
+<div class="stat">Hari Ini: <span id="todayCount">0</span></div>
+<button onclick="exportCSV()">Export CSV</button>
+<button onclick="resetData()">Reset Data</button>
 
+<h3>Gallery</h3>
+<div class="gallery" id="gallery"></div>
 </div>
 
 <script>
-const video = document.getElementById("video");
-const canvas = document.getElementById("resultCanvas");
-const ctx = canvas.getContext("2d");
-const countdownEl = document.getElementById("countdown");
-const startButton = document.getElementById("startButton");
+const ADMIN_PASSWORD="12345"; // ganti password di sini
 
-let historyData = JSON.parse(localStorage.getItem("photoboothData")) || [];
-let totalPhotos = 0;
-let sessionActive = false;
+const video=document.getElementById("video");
+const canvas=document.getElementById("resultCanvas");
+const ctx=canvas.getContext("2d");
+const countdownEl=document.getElementById("countdown");
 
-navigator.mediaDevices.getUserMedia({ video:true })
-.then(stream => video.srcObject = stream);
+let historyData=JSON.parse(localStorage.getItem("eventData"))||[];
+let totalPhotos=0;
+let sessionNumber=historyData.length;
 
-function updateDashboard(){
-  document.getElementById("totalSession").innerText = historyData.length;
-  document.getElementById("totalPhotos").innerText = totalPhotos;
-  document.getElementById("lastUsed").innerText =
-    historyData.length ? historyData[historyData.length-1].date : "-";
-
-  const gallery = document.getElementById("gallery");
-  gallery.innerHTML="";
-  historyData.slice().reverse().forEach(item=>{
-    const img=document.createElement("img");
-    img.src=item.image;
-    gallery.appendChild(img);
-  });
-}
-
-startButton.addEventListener("click",()=>{
-  if(!sessionActive){
-    sessionActive=true;
-    startButton.style.display="none";
-    startSession();
-  }
-});
+navigator.mediaDevices.getUserMedia({video:true})
+.then(stream=>video.srcObject=stream);
 
 function startSession(){
+  const name=document.getElementById("username").value.trim();
+  if(!name){ alert("Masukkan nama dulu"); return; }
+
+  sessionNumber++;
   let photos=[];
   let shots=3;
   let current=0;
@@ -175,7 +120,6 @@ function startSession(){
     const interval=setInterval(()=>{
       time--;
       countdownEl.innerText=time;
-
       if(time<=0){
         clearInterval(interval);
         const tempCanvas=document.createElement("canvas");
@@ -185,21 +129,19 @@ function startSession(){
         tctx.drawImage(video,0,0,350,250);
         photos.push(tempCanvas);
         totalPhotos++;
-
         current++;
         if(current<shots){
           takeShot();
         }else{
-          finishSession(photos);
+          finishSession(name,photos);
         }
       }
     },1000);
   }
-
   takeShot();
 }
 
-function finishSession(photos){
+function finishSession(name,photos){
   ctx.fillStyle="white";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
@@ -209,40 +151,77 @@ function finishSession(photos){
     y+=280;
   });
 
+  ctx.fillStyle="black";
+  ctx.font="20px Arial";
+  ctx.fillText("Nama: "+name,20,880);
+  ctx.fillText("Sesi: "+sessionNumber,20,860);
+
   const imageData=canvas.toDataURL();
 
   historyData.push({
+    session:sessionNumber,
+    name:name,
     date:new Date().toLocaleString(),
     image:imageData
   });
 
-  localStorage.setItem("photoboothData",JSON.stringify(historyData));
-
-  updateDashboard();
-
-  countdownEl.innerText="Selesai!";
-  sessionActive=false;
-  startButton.style.display="block";
+  localStorage.setItem("eventData",JSON.stringify(historyData));
+  document.getElementById("username").value="";
+  updateAdmin();
 }
 
-function exportData(){
-  const dataStr = "data:text/json;charset=utf-8," +
-    encodeURIComponent(JSON.stringify(historyData));
-  const dl=document.createElement("a");
-  dl.href=dataStr;
-  dl.download="photobooth-report.json";
-  dl.click();
+function showAdminLogin(){
+  const pass=prompt("Masukkan Password Admin:");
+  if(pass===ADMIN_PASSWORD){
+    document.getElementById("adminPanel").style.display="block";
+    updateAdmin();
+  }else{
+    alert("Password salah");
+  }
+}
+
+function updateAdmin(){
+  document.getElementById("totalSession").innerText=historyData.length;
+  document.getElementById("totalPhotos").innerText=totalPhotos;
+
+  const today=new Date().toLocaleDateString();
+  const todayCount=historyData.filter(d=>
+    new Date(d.date).toLocaleDateString()===today).length;
+
+  document.getElementById("todayCount").innerText=todayCount;
+
+  const gallery=document.getElementById("gallery");
+  gallery.innerHTML="";
+  historyData.slice().reverse().forEach(item=>{
+    const img=document.createElement("img");
+    img.src=item.image;
+    gallery.appendChild(img);
+  });
+}
+
+function exportCSV(){
+  let csv="Session,Name,Date\n";
+  historyData.forEach(d=>{
+    csv+=`${d.session},${d.name},${d.date}\n`;
+  });
+
+  const blob=new Blob([csv],{type:"text/csv"});
+  const link=document.createElement("a");
+  link.href=URL.createObjectURL(blob);
+  link.download="photobooth-report.csv";
+  link.click();
 }
 
 function resetData(){
-  localStorage.removeItem("photoboothData");
-  historyData=[];
-  totalPhotos=0;
-  updateDashboard();
+  if(confirm("Yakin reset semua data?")){
+    localStorage.removeItem("eventData");
+    historyData=[];
+    totalPhotos=0;
+    updateAdmin();
+  }
 }
 
-updateDashboard();
+updateAdmin();
 </script>
-
 </body>
 </html>
