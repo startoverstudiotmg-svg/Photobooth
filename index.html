@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple Photobooth</title>
+  <style>
+    body { text-align:center; font-family:Arial; background:#f2f2f2; }
+    video, canvas { border:3px solid black; border-radius:10px; }
+    button { padding:10px 20px; margin:10px; font-size:16px; }
+  </style>
+</head>
+<body>
+
+<h1>📸 Photobooth Gratis</h1>
+
+<video id="video" width="300" autoplay></video>
+<br>
+<button onclick="takePhoto()">Ambil Foto</button>
+<br>
+<canvas id="canvas" width="300" height="225"></canvas>
+
+<script>
+const video = document.getElementById('video');
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => video.srcObject = stream);
+
+function takePhoto() {
+  const canvas = document.getElementById('canvas');
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0, 300, 225);
+}
+</script>
+
+</body>
+</html>
