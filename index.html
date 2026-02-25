@@ -2,13 +2,13 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Modern Photobooth</title>
+<title>Self Photobooth Pro</title>
 <style>
 *{box-sizing:border-box}
 body{
   margin:0;
-  font-family:'Segoe UI',sans-serif;
-  background:linear-gradient(135deg,#667eea,#764ba2);
+  font-family:Arial, sans-serif;
+  background:linear-gradient(135deg,#1e3c72,#2a5298);
   color:white;
 }
 
@@ -18,88 +18,83 @@ body{
   min-height:100vh;
 }
 
-.camera-section{
-  flex:1;
+.camera{
+  flex:2;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
   padding:20px;
+  position:relative;
 }
 
 video{
-  width:320px;
+  width:350px;
   border-radius:15px;
   border:4px solid white;
-  box-shadow:0 10px 30px rgba(0,0,0,0.3);
 }
 
 #countdown{
-  font-size:70px;
+  font-size:80px;
+  margin:15px;
+}
+
+#startButton{
+  padding:15px 40px;
+  font-size:20px;
+  border:none;
+  border-radius:15px;
+  background:#ff4081;
+  color:white;
+  cursor:pointer;
+  margin-top:15px;
   font-weight:bold;
-  margin:10px;
+}
+
+#startButton:hover{
+  opacity:0.9;
+}
+
+canvas{
+  margin-top:20px;
+  border-radius:15px;
+  background:white;
 }
 
 .dashboard{
   flex:1;
   background:white;
   color:#333;
-  padding:25px;
-  border-top-left-radius:30px;
-  border-bottom-left-radius:30px;
+  padding:20px;
+  overflow:auto;
 }
 
-.dashboard h2{
-  margin-top:0;
-}
-
-.control-group{
-  margin-bottom:15px;
-}
-
-label{
-  font-weight:600;
-  display:block;
-  margin-bottom:5px;
-}
-
-input, select{
-  width:100%;
-  padding:8px;
+.stat{
+  background:#f0f0f0;
+  padding:10px;
   border-radius:8px;
-  border:1px solid #ccc;
+  margin-bottom:10px;
 }
 
 button{
   width:100%;
-  padding:12px;
+  padding:10px;
   margin-top:10px;
   border:none;
-  border-radius:10px;
-  font-size:16px;
-  cursor:pointer;
-  background:#667eea;
+  border-radius:8px;
+  background:#2a5298;
   color:white;
-  font-weight:bold;
+  cursor:pointer;
 }
 
-button:hover{
-  opacity:0.9;
+.gallery img{
+  width:100%;
+  margin-top:10px;
+  border-radius:10px;
 }
 
-canvas{
-  margin-top:15px;
-  border-radius:15px;
-  background:white;
-}
-
-@media(max-width:768px){
-  .container{
-    flex-direction:column;
-  }
-  .dashboard{
-    border-radius:20px 20px 0 0;
-  }
+@media(max-width:900px){
+  .container{flex-direction:column;}
 }
 </style>
 </head>
@@ -107,166 +102,146 @@ canvas{
 
 <div class="container">
 
-<div class="camera-section">
-  <h1>📸 Modern Photobooth</h1>
+<div class="camera">
+  <h1>📸 Self Photobooth</h1>
   <video id="video" autoplay></video>
   <div id="countdown"></div>
-  <canvas id="stripCanvas" width="320" height="1000"></canvas>
+  <button id="startButton">🎬 MULAI SESI</button>
+  <canvas id="resultCanvas" width="350" height="900"></canvas>
 </div>
 
 <div class="dashboard">
-  <h2>⚙ Dashboard</h2>
+  <h2>📊 Dashboard Report</h2>
 
-  <div class="control-group">
-    <label>Countdown (detik)</label>
-    <input type="number" id="countdownInput" value="4" min="1" max="10">
-  </div>
+  <div class="stat">Total Sesi: <span id="totalSession">0</span></div>
+  <div class="stat">Total Foto Diambil: <span id="totalPhotos">0</span></div>
+  <div class="stat">Terakhir Digunakan: <span id="lastUsed">-</span></div>
 
-  <div class="control-group">
-    <label>Jumlah Foto</label>
-    <select id="photoCount">
-      <option value="1">1</option>
-      <option value="2">2</option>
-      <option value="3" selected>3</option>
-      <option value="4">4</option>
-    </select>
-  </div>
+  <button onclick="exportData()">Export Data (JSON)</button>
+  <button onclick="resetData()">Reset Data</button>
 
-  <div class="control-group">
-    <label>Warna Background</label>
-    <input type="color" id="bgColor" value="#ffffff">
-  </div>
-
-  <div class="control-group">
-    <label>Layout</label>
-    <select id="layoutStyle">
-      <option value="classic">Classic Strip</option>
-      <option value="polaroid">Polaroid</option>
-    </select>
-  </div>
-
-  <div class="control-group">
-    <label>Upload Frame PNG</label>
-    <input type="file" id="frameUpload" accept="image/*">
-  </div>
-
-  <div class="control-group">
-    <label>
-      <input type="checkbox" id="mirrorToggle"> Mirror Camera
-    </label>
-  </div>
-
-  <button onclick="startPhotobooth()">Start Photobooth</button>
-  <button onclick="downloadStrip()">Download</button>
-
+  <h3>Gallery Hasil</h3>
+  <div class="gallery" id="gallery"></div>
 </div>
 
 </div>
 
 <script>
-const video = document.getElementById('video');
-const canvas = document.getElementById('stripCanvas');
-const ctx = canvas.getContext('2d');
+const video = document.getElementById("video");
+const canvas = document.getElementById("resultCanvas");
+const ctx = canvas.getContext("2d");
+const countdownEl = document.getElementById("countdown");
+const startButton = document.getElementById("startButton");
 
-const countdownEl = document.getElementById('countdown');
-const countdownInput = document.getElementById('countdownInput');
-const photoCountSelect = document.getElementById('photoCount');
-const bgColorPicker = document.getElementById('bgColor');
-const frameUpload = document.getElementById('frameUpload');
-const mirrorToggle = document.getElementById('mirrorToggle');
-const layoutStyle = document.getElementById('layoutStyle');
-
-let photos = [];
-let frameImage = null;
+let historyData = JSON.parse(localStorage.getItem("photoboothData")) || [];
+let totalPhotos = 0;
+let sessionActive = false;
 
 navigator.mediaDevices.getUserMedia({ video:true })
 .then(stream => video.srcObject = stream);
 
-mirrorToggle.addEventListener("change",()=>{
-  video.style.transform = mirrorToggle.checked ? "scaleX(-1)" : "scaleX(1)";
+function updateDashboard(){
+  document.getElementById("totalSession").innerText = historyData.length;
+  document.getElementById("totalPhotos").innerText = totalPhotos;
+  document.getElementById("lastUsed").innerText =
+    historyData.length ? historyData[historyData.length-1].date : "-";
+
+  const gallery = document.getElementById("gallery");
+  gallery.innerHTML="";
+  historyData.slice().reverse().forEach(item=>{
+    const img=document.createElement("img");
+    img.src=item.image;
+    gallery.appendChild(img);
+  });
+}
+
+startButton.addEventListener("click",()=>{
+  if(!sessionActive){
+    sessionActive=true;
+    startButton.style.display="none";
+    startSession();
+  }
 });
 
-frameUpload.addEventListener("change",function(e){
-  const reader = new FileReader();
-  reader.onload = function(event){
-    frameImage = new Image();
-    frameImage.src = event.target.result;
-  }
-  reader.readAsDataURL(e.target.files[0]);
-});
+function startSession(){
+  let photos=[];
+  let shots=3;
+  let current=0;
 
-function startPhotobooth(){
-  photos = [];
-  takeSequence(parseInt(photoCountSelect.value));
-}
+  function takeShot(){
+    let time=4;
+    countdownEl.innerText=time;
 
-function takeSequence(count){
-  if(count===0){
-    createStrip();
-    return;
-  }
+    const interval=setInterval(()=>{
+      time--;
+      countdownEl.innerText=time;
 
-  let timeLeft = parseInt(countdownInput.value);
-  countdownEl.innerText = timeLeft;
+      if(time<=0){
+        clearInterval(interval);
+        const tempCanvas=document.createElement("canvas");
+        tempCanvas.width=350;
+        tempCanvas.height=250;
+        const tctx=tempCanvas.getContext("2d");
+        tctx.drawImage(video,0,0,350,250);
+        photos.push(tempCanvas);
+        totalPhotos++;
 
-  const interval = setInterval(()=>{
-    timeLeft--;
-    countdownEl.innerText = timeLeft;
-
-    if(timeLeft<=0){
-      clearInterval(interval);
-      capturePhoto();
-      takeSequence(count-1);
-    }
-  },1000);
-}
-
-function capturePhoto(){
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = 320;
-  tempCanvas.height = 240;
-  const tempCtx = tempCanvas.getContext("2d");
-
-  if(mirrorToggle.checked){
-    tempCtx.translate(320,0);
-    tempCtx.scale(-1,1);
+        current++;
+        if(current<shots){
+          takeShot();
+        }else{
+          finishSession(photos);
+        }
+      }
+    },1000);
   }
 
-  tempCtx.drawImage(video,0,0,320,240);
-  photos.push(tempCanvas);
+  takeShot();
 }
 
-function createStrip(){
-  ctx.fillStyle = bgColorPicker.value;
+function finishSession(photos){
+  ctx.fillStyle="white";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  let y = 30;
-
-  photos.forEach(photo=>{
-    if(layoutStyle.value==="polaroid"){
-      ctx.fillStyle="white";
-      ctx.fillRect(20,y-10,280,270);
-      ctx.drawImage(photo,30,y,260,200);
-      y+=300;
-    }else{
-      ctx.drawImage(photo,0,y,320,240);
-      y+=260;
-    }
+  let y=20;
+  photos.forEach(p=>{
+    ctx.drawImage(p,0,y,350,250);
+    y+=280;
   });
 
-  if(frameImage){
-    ctx.drawImage(frameImage,0,0,320,canvas.height);
-  }
+  const imageData=canvas.toDataURL();
 
-  countdownEl.innerText="Done!";
+  historyData.push({
+    date:new Date().toLocaleString(),
+    image:imageData
+  });
+
+  localStorage.setItem("photoboothData",JSON.stringify(historyData));
+
+  updateDashboard();
+
+  countdownEl.innerText="Selesai!";
+  sessionActive=false;
+  startButton.style.display="block";
 }
 
-function downloadStrip(){
-  const link = document.createElement("a");
-  link.download="photostrip.png";
-  link.href=canvas.toDataURL();
-  link.click();
+function exportData(){
+  const dataStr = "data:text/json;charset=utf-8," +
+    encodeURIComponent(JSON.stringify(historyData));
+  const dl=document.createElement("a");
+  dl.href=dataStr;
+  dl.download="photobooth-report.json";
+  dl.click();
 }
+
+function resetData(){
+  localStorage.removeItem("photoboothData");
+  historyData=[];
+  totalPhotos=0;
+  updateDashboard();
+}
+
+updateDashboard();
 </script>
 
 </body>
